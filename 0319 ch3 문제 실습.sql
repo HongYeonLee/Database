@@ -114,9 +114,28 @@ FROM orders JOIN book ON orders.bookid = book.bookid
 WHERE custid = (SELECT custid FROM customer WHERE NAME = '박지성');
 
 -- 박지성이 구매하지 않은 도서의 이름
-SELECT DISTINCT bookname
-FROM book JOIN orders ON book.bookid = orders.bookid
-WHERE custid <> (SELECT custid FROM customer WHERE NAME = '박지성');
+-- SELECT DISTINCT bookname
+-- FROM book JOIN orders ON book.bookid = orders.bookid
+-- WHERE custid <> (SELECT custid FROM customer WHERE NAME = '박지성');
+-- 이렇게 풀 경우 박지성이 구매하지 않은 도서를 구하는게 아니라 다른 사람이 구매한 도서를 구하게됨
+-- 전체 책 - 박지성이 구매한 책
+SELECT bookname
+FROM book
+WHERE bookid NOT IN (SELECT bookid FROM orders WHERE custid = (SELECT custid FROM customer WHERE name = '박지성'))
+
+-- join으로 작성하기
+SELECT *
+FROM book
+WHERE NOT EXISTS (
+	SELECT bookname
+	FROM orders
+	WHERE orders.bookid = book.bookid
+		AND orders.custid = (
+			SELECT custid
+			FROM customer
+			WHERE name = "박지성"
+		)
+);
 
 -- 마당서점 도서의 총 개수
 SELECT COUNT(*)
@@ -169,9 +188,13 @@ FROM customer JOIN orders ON customer.custid = orders.custid
 GROUP BY customer.name;
 
 -- 고객의 이름과 고객이 구매한 도서 목록
+-- 이렇게 풀면 주문하지 않은 고객의 정보는 나오지 않음
+-- SELECT customer.name, book.bookname
+-- FROM book JOIN (customer JOIN orders ON customer.custid = orders.custid) 
+-- 			ON book.bookid = orders.bookid;
 SELECT customer.name, book.bookname
-FROM book JOIN (customer JOIN orders ON customer.custid = orders.custid) 
-			ON book.bookid = orders.bookid;
+FROM customer LEFT JOIN orders ON customer.custid = orders.custid
+			  LEFT JOIN book ON book.bookid = orders.bookid
 
 -- 고객 이름을 모르는 주문 도서도 나옴
 SELECT customer.name,

@@ -181,3 +181,36 @@ FROM (SELECT * FROM book ORDER BY price) b, (SELECT @RNUM := 0) R
 WHERE @RNUM <3; #행번호와 함께 price순으로 5개만 보기
 
 SELECT * FROM book ORDER BY price
+
+-- 0403 실습
+SET @SEQ := 0; #SEQ라는 변수에 0 할당
+
+SELECT (@SEQ := @SEQ +1) '순번', custid, NAME, phone
+FROM customer
+WHERE @SEQ < 2;
+
+-- 질의 4-16 EXISTS 연산자를 사용하여 대한민국에 거주하는 고객에게 판매한 도서의 총 판매액을 구하시오
+SELECT SUM(saleprice) AS '총 판매액'
+FROM orders
+WHERE EXISTS (SELECT * FROM customer WHERE address LIKE '%대한민국%' AND orders.custid = customer.custid);
+
+-- 질의 4-17 마다서점의 고객별 판매액을 나타내시오(고객이름과 고객별 판매액 출력)
+SELECT (SELECT NAME FROM customer cs WHERE cs.custid = od.custid) 'name', SUM(saleprice) 'total'
+FROM orders od
+GROUP BY od.custid;
+
+-- 질의 4-18 orders 테이블에 각 주문에 맞는 도서이름을 입력하시오
+ALTER TABLE orders ADD bname VARCHAR(30);
+UPDATE orders SET bname = (SELECT bookname FROM book WHERE orders.bookid = book.bookid);
+ALTER TABLE orders DROP COLUMN bname;
+
+-- 질의 4-19 고객 번호가 2 이하인 고객의 판매액을 나타내시오. (고객이름과 고객별 판매액 출력)
+SELECT cs.name, SUM(od.saleprice)
+FROM customer cs JOIN orders od ON cs.custid = od.custid
+WHERE cs.custid <= 2
+GROUP BY cs.custid;
+
+SELECT cs.name, SUM(od.saleprice) 'total'
+FROM (SELECT custid, NAME FROM customer WHERE custid <= 2) cs, orders od #가상테이블 cs와 orders 조인
+WHERE cs.custid = od.custid
+GROUP BY cs.name;

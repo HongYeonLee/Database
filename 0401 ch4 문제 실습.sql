@@ -214,3 +214,90 @@ SELECT cs.name, SUM(od.saleprice) 'total'
 FROM (SELECT custid, NAME FROM customer WHERE custid <= 2) cs, orders od #가상테이블 cs와 orders 조인
 WHERE cs.custid = od.custid
 GROUP BY cs.name;
+
+#질의 4-17 마당서점의 고객별 판매액을 나타내시오(고객이름과 고객별 판매액 출력)
+WITH sales_summary AS(
+	SELECT od.custid, cs.name, SUM(od.saleprice) AS total_sales
+	FROM orders od JOIN customer cs ON od.custid = cs.custid
+	GROUP BY od.custid, cs.name
+)
+
+#매출별로 내림차순 하여 보기
+SELECT custid, NAME, total_sales
+FROM sales_summary
+ORDER BY total_sales DESC;
+
+WITH sales_summary AS(
+	SELECT od.custid, cs.name, SUM(od.saleprice) AS total_sales
+	FROM orders od JOIN customer cs ON od.custid = cs.custid
+	GROUP BY od.custid, cs.name
+)
+
+#평균 매출보다 높은 고객 조회
+SELECT custid, NAME, total_sales
+FROM sales_summary
+WHERE total_sales > (SELECT AVG(total_sales) FROM sales_summary)
+ORDER BY total_sales DESC;
+
+#출판사별 도서의 매출순위를 구하고 출판사별, 매출 순위별 구하기
+SELECT b.publisher, b.bookname, SUM(o.saleprice) AS total_sales, 
+		 RANK() OVER(PARTITION BY b.publisher ORDER BY SUM(o.saleprice) DESC) AS rank_in_publsiher
+FROM orders o JOIN book b ON o.bookid = b.bookid
+GROUP BY b.publisher, b.bookname
+ORDER BY b.publisher, rank_in_publsiher;
+
+SELECT *
+FROM orders o JOIN book b ON o.bookid = b.bookid;
+
+SELECT b.publisher, b.bookname, SUM(o.saleprice) AS total_sales
+FROM orders o JOIN book b ON o.bookid = b.bookid
+GROUP BY b.publisher, b.bookname;
+
+SELECT b.publisher, b.bookname, SUM(o.saleprice) AS total_sales,
+		 RANK() OVER(PARTITION BY b.publisher ORDER BY SUM(o.saleprice) DESC) AS rank_in_publisher
+FROM orders o JOIN book b ON o.bookid = b.bookid
+GROUP BY b.publisher, b.bookname
+ORDER BY b.publisher, b.bookname;
+
+#고객별 총 매출을 다양한 쿼리로 집계하기
+#1. 기본 집계
+SELECT c.custid, c.name, SUM(saleprice) AS total_sales
+FROM orders o JOIN customer c ON o.custid = c.custid
+GROUP BY c.custid, c.name
+ORDER BY total_sales DESC;
+
+#2. sales_rank속성을 추가하기 위해 1의 집계 결과를 서브쿼리로 감싼 후 사용
+SELECT sub.custid, sub.name, sub.total_sales
+FROM (SELECT c.custid, c.name, SUM(saleprice) AS total_sales
+		FROM orders o JOIN customer c ON o.custid = c.custid
+		GROUP BY c.custid, c.name) sub
+ORDER BY sub.total_sales DESC;
+
+#with절로 정의해 가독성을 높임
+WITH sale_summary AS(
+	SELECT c.custid, c.name, SUM(saleprice) AS total_sales
+	FROM orders o JOIN customer c ON o.custid = c.custid
+	GROUP BY c.custid, c.name
+)
+SELECT custid, NAME, total_sales
+FROM sale_summary
+ORDER BY total_sales DESC;
+
+WITH sale_summary AS(
+	SELECT c.custid, c.name, SUM(saleprice) AS total_sales
+	FROM orders o JOIN customer c ON o.custid = c.custid
+	GROUP BY c.custid, c.name
+)
+#메인 쿼리 한 행에 대해 서브쿼리의 모든 행이 돌아가면서 비교문을 실행
+SELECT s1.custid, s1.name, s1.total_sales,
+	(SELECT COUNT(DISTINCT s2.total_sales)
+	 FROM sale_summary s2
+	 WHERE s2.total_sales >= s1.total_sales) AS sales_rank
+FROM sale_summary s1
+ORDER BY sales_rank;
+
+#4 간결한 코드로 집계와 순위를 동시에 처리
+SELECT cs.custid, cs.name, SUM(od.saleprice) AS total_sales,
+		 RANK() OVER(ORDER BY SUM(od.saleprice) DESC) AS sales_rank
+FROM orders od JOIN customer cs ON od.custid = cs.custid
+GROUP BY cs.custid, cs.name;
